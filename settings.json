@@ -1,0 +1,10 @@
+{
+	"db": {
+		"dbl": {
+			"server": "127.0.0.1:3306",
+			"username": "machine",
+			"password": "password",
+			"schema": "machine_test"
+		}
+	}
+}
