@@ -51,7 +51,7 @@ struct Result
 {
 	json data;
 
-	Result(const json &data, const std::string &path) : data(data) {}
+	Result(const json &data) : data(data) {}
 };
 
 struct Queue
