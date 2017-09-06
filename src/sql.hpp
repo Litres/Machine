@@ -136,7 +136,7 @@ public:
 
 					if (value.is_string())
 					{
-						const std::string &parameter = e.get<std::string>();
+						const std::string &parameter = value.get<std::string>();
 						std::string value = r2.resolve(r1.resolve(parameter));
 						place(i.key(), value);
 					}

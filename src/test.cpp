@@ -5,7 +5,10 @@
 #include <catch.hpp>
 #include <json.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include "sql.hpp"
+#include "processor.hpp"
 
 const char *TAG = "[Machine]";
 
@@ -75,4 +78,27 @@ TEST_CASE( "sql::Query", TAG )
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id, name, age FROM user WHERE id = 1 AND age > 25" );
 	}
+
+	SECTION( "another" )
+	{
+		auto object = nlohmann::json::parse("{ \"data\": { \"request\": { \"baz\": 6, \"param\": { \"foo\": 1 }, \"Lib\": 100 }, \"other\" : { \"data\": \"may be here\" } }, \"body\": { \"params\": { \"sql\": [\"dbl\", \"SELECT id, name, ddate FROM test_rmd WHERE id = ? OR id BETWEEN ? AND :bar ORDER BY id DESC\", \"ref.t1\", { \":bar\": \"ref.param2\" }, 3], \"t1\": \"ref.data.request.param.foo\", \"list_path\": [\"путь\", \"для\", \"сохранения\", \"списка\"], \"param2\": \"ref.data.request.baz\" }, \"request\": \"l_sql\" } }");
+		machine::sql::Query query(object);
+		REQUIRE( query.alias() == "dbl" );
+		REQUIRE( query.sql() == "SELECT id, name, ddate FROM test_rmd WHERE id = 1 OR id BETWEEN 3 AND 6 ORDER BY id DESC" );
+	}
 }
+
+// TEST_CASE( "Processor", TAG )
+// {
+// 	SECTION( "complete" )
+// 	{
+// 		spdlog::set_pattern("[%H:%M:%S] [t %t] %l: %v");
+// 		spdlog::set_level(spdlog::level::debug);
+// 		auto console = spdlog::stdout_logger_mt("console");
+
+// 		auto request = std::string("{ \"data\": { \"request\": { \"baz\": 6, \"param\": { \"foo\": 1 }, \"Lib\": 100 }, \"other\" : { \"data\": \"may be here\" } }, \"body\": { \"params\": { \"sql\": [\"dbl\", \"SELECT id, name, ddate FROM test_rmd WHERE id = ? OR id BETWEEN ? AND :bar ORDER BY id DESC\", \"ref.t1\", { \":bar\": \"ref.param2\" }, 3], \"t1\": \"ref.data.request.param.foo\", \"list_path\": [\"путь\", \"для\", \"сохранения\", \"списка\"], \"param2\": \"ref.data.request.baz\" }, \"request\": \"l_sql\" } }");
+// 		machine::Processor processor;
+// 		auto response = processor.process(request);
+// 		REQUIRE( response.size() > 0 );
+// 	}
+// }
