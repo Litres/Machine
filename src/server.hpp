@@ -57,7 +57,8 @@ private:
 	void doWrite(const std::string &response)
 	{
 		auto self(shared_from_this());
-		boost::asio::async_write(socket_, boost::asio::buffer(response), [this, self](boost::system::error_code error, std::size_t /*length*/) {
+		std::string buffer = response + char(0x04);
+		boost::asio::async_write(socket_, boost::asio::buffer(buffer), [this, self](boost::system::error_code error, std::size_t /*length*/) {
 			if (error)
 			{
 				auto console = spdlog::get("console");

@@ -139,7 +139,7 @@ public:
 			json result = merge(results_.items());
 			console->debug("result: {0}", result.dump());
 
-			return std::string();
+			return result;
 		}
 		catch (const std::exception &e)
 		{
