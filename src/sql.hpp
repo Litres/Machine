@@ -255,7 +255,7 @@ struct ParentSQLFunction : public Function
 
 			return data;
 		}
-		catch(const ::sql::SQLException &e)
+		catch (const ::sql::SQLException &e)
 		{
 			console->error(e.what());
 			return json::object();
@@ -355,7 +355,7 @@ struct ChildSQLFunction : public Function
 
 			return data;
 		}
-		catch(const ::sql::SQLException &e)
+		catch (const ::sql::SQLException &e)
 		{
 			console->error(e.what());
 			return json::object();
