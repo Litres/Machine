@@ -98,7 +98,7 @@ void merge(const json &from, json &to)
 	}
 }
 
-json merge(const std::vector<Result> &results)
+std::string merge(const std::vector<Result> &results)
 {
 	json result = json::object();
 	for (auto &e : results)
@@ -117,7 +117,7 @@ json merge(const std::vector<Result> &results)
 			}
 		}
 	}
-	return result;
+	return result.dump();
 }
 
 class Processor
@@ -136,8 +136,8 @@ public:
 			nodes_[0]->try_put(object["data"]);
 			g_.wait_for_all();
 
-			json result = merge(results_.items());
-			console->debug("result: {0}", result.dump());
+			auto result = merge(results_.items());
+			console->debug("result: {0}", result);
 
 			return result;
 		}
