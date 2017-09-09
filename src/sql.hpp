@@ -230,7 +230,10 @@ struct ParentSQLFunction : public Function
 			std::shared_ptr<::sql::Connection> connection = Context::instance().pool()->get(query.alias());
 			std::unique_ptr<::sql::Statement> statement(connection->createStatement());
 			std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
+			
 			json hash = json::object();
+			json order = json::array();
+			
 			while (set->next())
 			{
 				json row = convert(set);
@@ -241,17 +244,19 @@ struct ParentSQLFunction : public Function
 				}
 				std::string key = boost::lexical_cast<std::string>(p->get<long>());
 				hash[key] = row;
+				order.push_back(key);
 			}
+
 			json list = json::object();
 			list["hash_by_id"] = hash;
 
 			json result = json::object();
 			result["list"] = list;
+			result["ordered_list"] = order;
+			result["list_path"] = object_["body"]["params"]["list_path"];
 
 			json data(v);
 			data["result"] = result;
-
-			// body => params => list_path
 
 			return data;
 		}

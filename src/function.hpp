@@ -26,7 +26,7 @@ public:
 	json operator()(json v) const
 	{
 		auto console = spdlog::get("console");
-		console->debug("object: {0}", f_->object_.dump());
+		console->debug("function object: {0}", f_->object_.dump());
 		try
 		{
 			return f_->execute(v);

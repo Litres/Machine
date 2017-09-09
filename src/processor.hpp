@@ -81,7 +81,7 @@ struct ResultFunction : public Function
 	json execute(const json &v) const override
 	{
 		auto console = spdlog::get("console");
-		console->debug("result: {0}", v.dump());
+		console->debug("function result: {0}", v.dump());
 		results_.push(Result(v));
 		return json();
 	}
@@ -100,16 +100,16 @@ void merge(const json &from, json &to)
 
 std::string merge(const std::vector<Result> &results)
 {
-	json result = json::object();
+	json object = json::object();
 	for (auto &e : results)
 	{
 		const json &hash = e.data["result"]["list"]["hash_by_id"];
 		for (json::const_iterator i = hash.begin(); i != hash.end(); i++)
 		{
-			auto p = result.find(i.key());
-			if (p == result.end())
+			auto p = object.find(i.key());
+			if (p == object.end())
 			{
-				result[i.key()] = i.value();
+				object[i.key()] = i.value();
 			}
 			else
 			{
@@ -117,6 +117,45 @@ std::string merge(const std::vector<Result> &results)
 			}
 		}
 	}
+
+	// apply order
+	const json &order = results[0].data["result"]["ordered_list"];
+	json array = json::array();
+	for (auto &key : order)
+	{
+		auto p = object.find(key.get<std::string>());
+		if (p == object.end())
+		{
+			throw std::logic_error("id not found");
+		}
+		else
+		{
+			array.push_back(*p);
+		}
+	}
+
+	// list path
+	const json &path = results[0].data["result"]["list_path"];
+	json result = json::object();
+	if (path.is_array())
+	{
+		json::pointer p = &result;
+		for (size_t j = 0; j < path.size() - 1; j++)
+		{
+			json &current = *p;
+			std::string key = path[j];
+			current[key] = json::object();
+			p = &(current[key]);
+		}
+		json &current = *p;
+		current[path.back().get<std::string>()] = array;
+	}
+
+	if (path.is_string())
+	{
+		result[path.get<std::string>()] = array;
+	}
+
 	return result.dump();
 }
 
