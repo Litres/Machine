@@ -148,7 +148,39 @@ public:
 
 	void place(const std::string &name, const std::string &value)
 	{
-		boost::replace_all(sql_, name, value);
+		named_[name] = value;
+	}
+
+	void bind(std::function<std::string (const std::string &)> f)
+	{
+		auto t = [f](const std::string &value) {
+			const char *start = value.c_str();
+			char *end = nullptr;
+			if (std::strtod(start, &end) == 0 && end == start)
+			{
+				return '\'' + f(value) + '\'';
+			}
+			else
+			{
+				return value;
+			}
+		};
+
+		for (auto &value : unnamed_)
+		{
+			auto p = sql_.find("?", last_);
+			if (p == std::string::npos)
+			{
+				throw std::logic_error(value);
+			}
+			sql_.replace(p, 1, t(value));
+			last_ = p + 1;
+		}
+
+		for (auto &pair : named_)
+		{
+			boost::replace_all(sql_, pair.first, t(pair.second));
+		}
 	}
 
 	const std::string &alias() const
@@ -164,18 +196,15 @@ public:
 private:
 	void place(const std::string &value)
 	{
-		auto p = sql_.find("?", last_);
-		if (p == std::string::npos)
-		{
-			throw std::logic_error(value);
-		}
-		sql_.replace(p, 1, value);
-		last_ = p + 1;
+		unnamed_.push_back(value);
 	}
 
 	std::string alias_;
 	std::string sql_;
 	std::string::size_type last_;
+
+	std::vector<std::string> unnamed_;
+	std::map<std::string, std::string> named_;
 };
 
 json convert(std::unique_ptr<::sql::ResultSet> &set, unsigned int i)
@@ -224,11 +253,17 @@ struct ParentSQLFunction : public Function
 	{
 		Query query(object_);
 		auto console = spdlog::get("console");
-		console->debug("executing SQL query: {0}", query.sql());
 		try
 		{
 			std::shared_ptr<::sql::Connection> connection = Context::instance().pool()->get(query.alias());
 			std::unique_ptr<::sql::Statement> statement(connection->createStatement());
+
+			query.bind([connection](const std::string &value) {
+				auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
+				return p->escapeString(value);
+			});
+
+			console->debug("executing SQL query: {0}", query.sql());
 			std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
 			
 			json hash = json::object();
@@ -244,7 +279,7 @@ struct ParentSQLFunction : public Function
 				}
 				std::string key = boost::lexical_cast<std::string>(p->get<long>());
 				hash[key] = row;
-				order.push_back(key);
+				order.push_back({ {"id", key} });
 			}
 
 			json list = json::object();
@@ -290,14 +325,20 @@ struct ChildSQLFunction : public Function
 				t << ",";
 			}
 		}
-		query.place(":ids", t.str());
+		query.place(":ids", 'N' + t.str());
 
 		auto console = spdlog::get("console");
-		console->debug("executing SQL query: {0}", query.sql());
 		try
 		{
 			std::shared_ptr<::sql::Connection> connection = Context::instance().pool()->get(query.alias());
 			std::unique_ptr<::sql::Statement> statement(connection->createStatement());
+
+			query.bind([connection](const std::string &value) {
+				auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
+				return p->escapeString(value);
+			});
+
+			console->debug("executing SQL query: {0}", query.sql());
 			std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
 			json rows = json::object();
 			while (set->next())
@@ -332,7 +373,7 @@ struct ChildSQLFunction : public Function
 
 			for (json::iterator i = rows.begin(); i != rows.end(); i++)
 			{
-				json &row = hash[i.key()];
+				json row = hash[i.key()];
 				json &array = i.value();
 				if (array.size() == 1)
 				{

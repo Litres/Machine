@@ -121,9 +121,9 @@ std::string merge(const std::vector<Result> &results)
 	// apply order
 	const json &order = results[0].data["result"]["ordered_list"];
 	json array = json::array();
-	for (auto &key : order)
+	for (auto &i : order)
 	{
-		auto p = object.find(key.get<std::string>());
+		auto p = object.find(i["id"].get<std::string>());
 		if (p == object.end())
 		{
 			throw std::logic_error("id not found");
