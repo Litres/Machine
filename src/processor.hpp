@@ -47,46 +47,6 @@ struct Request
 	}
 };
 
-struct Result
-{
-	json data;
-
-	Result(const json &data) : data(data) {}
-};
-
-struct Queue
-{
-	void push(const Result &result)
-	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		items_.push_back(result);
-	}
-
-	const std::vector<Result> &items() const
-	{
-		return items_;
-	}
-
-private:
-	std::vector<Result> items_;
-	std::mutex mutex_;
-};
-
-struct ResultFunction : public Function
-{
-	Queue &results_;
-
-	ResultFunction(const json &object, Queue &results) : Function(object), results_(results) {}
-
-	json execute(const json &v) const override
-	{
-		auto console = spdlog::get("console");
-		console->debug("function result: {0}", v.dump());
-		results_.push(Result(v));
-		return json();
-	}
-};
-
 void merge(const json &from, json &to)
 {
 	for (json::const_iterator j = from.begin(); j != from.end(); j++)
@@ -100,10 +60,22 @@ void merge(const json &from, json &to)
 
 std::string merge(const std::vector<Result> &results)
 {
+	auto console = spdlog::get("console");
+
 	json object = json::object();
+	json::const_pointer parent = nullptr;
 	for (auto &e : results)
 	{
-		const json &hash = e.data["result"]["list"]["hash_by_id"];
+		console->debug("result object: {0}", e.data.dump());
+
+		const json &list = e.data["result"]["list"];
+
+		if (list.find("parent") != list.end())
+		{
+			parent = &e.data;
+		}
+
+		const json &hash = list["hash_by_id"];
 		for (json::const_iterator i = hash.begin(); i != hash.end(); i++)
 		{
 			auto p = object.find(i.key());
@@ -118,43 +90,67 @@ std::string merge(const std::vector<Result> &results)
 		}
 	}
 
-	// apply order
-	const json &order = results[0].data["result"]["ordered_list"];
-	json array = json::array();
-	for (auto &i : order)
+	if (parent != nullptr)
 	{
-		auto p = object.find(i["id"].get<std::string>());
-		if (p == object.end())
-		{
-			throw std::logic_error("id not found");
-		}
-		else
-		{
-			array.push_back(*p);
-		}
-	}
+		const json &list = (*parent)["result"]["list"];
 
-	// list path
-	const json &path = results[0].data["result"]["list_path"];
-	json result = json::object();
-	if (path.is_array())
-	{
-		json::pointer p = &result;
-		for (size_t j = 0; j < path.size() - 1; j++)
+		// apply order
+		const json &order = list["ordered_list"];
+		json array = json::array();
+		for (auto &i : order)
 		{
+			auto p = object.find(i["id"].get<std::string>());
+			if (p == object.end())
+			{
+				throw std::logic_error("id not found");
+			}
+			else
+			{
+				array.push_back(*p);
+			}
+		}
+
+		// path
+		auto path = list.find("path");
+		if (path == list.end())
+		{
+			json list = json::object();
+			list["hash_by_id"] = array;
+
+			json result = json::object();
+			result["list"] = list;
+
+			return result.dump();
+		}
+
+		json result = json::object();
+		if (path->is_array())
+		{
+			json::pointer p = &result;
+			for (size_t j = 0; j < path->size() - 1; j++)
+			{
+				json &current = *p;
+				std::string key = (*path)[j];
+				current[key] = json::object();
+				p = &(current[key]);
+			}
 			json &current = *p;
-			std::string key = path[j];
-			current[key] = json::object();
-			p = &(current[key]);
+			current[path->back().get<std::string>()] = array;
 		}
-		json &current = *p;
-		current[path.back().get<std::string>()] = array;
+
+		if (path->is_string())
+		{
+			result[path->get<std::string>()] = array;
+		}
+
+		return result.dump();
 	}
 
-	if (path.is_string())
-	{
-		result[path.get<std::string>()] = array;
-	}
+	json list = json::object();
+	list["hash_by_id"] = object;
+
+	json result = json::object();
+	result["list"] = list;
 
 	return result.dump();
 }
@@ -212,12 +208,6 @@ private:
 				add(node, e);
 			}
 		}
-		else
-		{
-			std::shared_ptr<Node> child(new Node(g_, 1, FunctionBridge(std::make_shared<ResultFunction>(object, results_))));
-			nodes_.push_back(child);
-			tbb::flow::make_edge(*node, *child);
-		}
 	}
 
 	std::shared_ptr<Function> create(const json &object)
@@ -228,12 +218,12 @@ private:
 		{
 			if (request.type_ == "l")
 			{
-				return std::make_shared<sql::ParentSQLFunction<Context>>(object);
+				return std::make_shared<sql::ParentSQLFunction<Context>>(object, results_);
 			}
 
 			if (request.type_ == "h")
 			{
-				return std::make_shared<sql::ChildSQLFunction<Context>>(object);
+				return std::make_shared<sql::ChildSQLFunction<Context>>(object, results_);
 			}
 		}
 		

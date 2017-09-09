@@ -8,11 +8,37 @@ namespace machine
 
 using json = nlohmann::json;
 
+struct Result
+{
+	json data;
+
+	Result(const json &data) : data(data) {}
+};
+
+struct Queue
+{
+	void push(const Result &result)
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		items_.push_back(result);
+	}
+
+	const std::vector<Result> &items() const
+	{
+		return items_;
+	}
+
+private:
+	std::vector<Result> items_;
+	std::mutex mutex_;
+};
+
 struct Function
 {
 	const json &object_;
+	Queue &results_;
 
-	Function(const json &object) : object_(object) {}
+	Function(const json &object, Queue &results) : object_(object), results_(results) {}
 
 	virtual json execute(const json &v) const = 0;
 

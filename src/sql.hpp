@@ -247,7 +247,7 @@ json convert(std::unique_ptr<::sql::ResultSet> &set)
 template <typename Context>
 struct ParentSQLFunction : public Function
 {
-	ParentSQLFunction(const json &object) : Function(object) {}
+	ParentSQLFunction(const json &object, Queue &results) : Function(object, results) {}
 
 	json execute(const json &v) const override
 	{
@@ -283,12 +283,16 @@ struct ParentSQLFunction : public Function
 			}
 
 			json list = json::object();
+			list["parent"] = true;
 			list["hash_by_id"] = hash;
+			list["rows"] = hash.size();
+			list["ordered_list"] = order;
+			list["path"] = object_["body"]["params"]["list_path"];
 
 			json result = json::object();
 			result["list"] = list;
-			result["ordered_list"] = order;
-			result["list_path"] = object_["body"]["params"]["list_path"];
+
+			results_.push(Result(json::object({ {"result", result} })));
 
 			json data(v);
 			data["result"] = result;
@@ -303,29 +307,36 @@ struct ParentSQLFunction : public Function
 	}
 };
 
+std::string extract_keys(const json &data)
+{
+	const json &hash = data["result"]["list"]["hash_by_id"];
+
+	std::string result;
+	size_t counter = 0;
+	for (json::const_iterator i = hash.begin(); i != hash.end(); i++)
+	{
+		result += i.key();
+		if (counter++ != hash.size() - 1)
+		{
+			result += ",";
+		}
+	}
+
+	return result;
+}
+
 template <typename Context>
 struct ChildSQLFunction : public Function
 {
-	ChildSQLFunction(const json &object) : Function(object) {}
+	ChildSQLFunction(const json &object, Queue &results) : Function(object, results) {}
 
 	json execute(const json &v) const override
 	{
 		Query query(object_);
 
 		json data(v);
-		json &hash = data["result"]["list"]["hash_by_id"];
 
-		std::stringstream t;
-		int counter = 0;
-		for (json::iterator i = hash.begin(); i != hash.end(); i++)
-		{
-			t << i.key();
-			if (counter++ != hash.size() - 1)
-			{
-				t << ",";
-			}
-		}
-		query.place(":ids", 'N' + t.str());
+		query.place(":ids", extract_keys(data));
 
 		auto console = spdlog::get("console");
 		try
@@ -371,9 +382,12 @@ struct ChildSQLFunction : public Function
 				rows[key].push_back(row);
 			}
 
+			json hash = json::object();
+
 			for (json::iterator i = rows.begin(); i != rows.end(); i++)
 			{
-				json row = hash[i.key()];
+				json row = json::object();
+
 				json &array = i.value();
 				if (array.size() == 1)
 				{
@@ -386,7 +400,7 @@ struct ChildSQLFunction : public Function
 				else
 				{
 					json::pointer p = &row;
-					const json &path = object_["body"]["hash_of_lists"];
+					const json &path = object_["body"]["params"]["hash_of_lists"];
 					for (size_t j = 0; j < path.size() - 1; j++)
 					{
 						json &current = *p;
@@ -397,7 +411,18 @@ struct ChildSQLFunction : public Function
 					json &current = *p;
 					current[path.back().get<std::string>()] = array;
 				}
+
+				hash[i.key()] = row;
 			}
+
+			json list = json::object();
+			list["hash_by_id"] = hash;
+			list["rows"] = hash.size();
+
+			json result = json::object();
+			result["list"] = list;
+
+			results_.push(Result(json::object({ {"result", result} })));
 
 			return data;
 		}
