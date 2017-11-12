@@ -15,6 +15,7 @@
 #include <cppconn/resultset.h>
 #include <cppconn/statement.h>
 
+#include "common.hpp"
 #include "function.hpp"
 
 namespace machine
@@ -53,7 +54,7 @@ const json &travel(const json &object, const std::string &path)
 		const json &current = *i;
 		if (current.find(name) == current.end())
 		{
-			throw std::invalid_argument(name);
+			throw std::invalid_argument("unknown path: " + path);
 		}
 		i = &(current[name]);
 	}
@@ -63,7 +64,7 @@ const json &travel(const json &object, const std::string &path)
 
 struct Resolver
 {
-	const json &object_;
+	json object_;
 
 	Resolver(const json &object) : object_(object) {}
 
@@ -72,6 +73,7 @@ struct Resolver
 		const std::string ref = "ref.";
 		if (parameter.find(ref) != 0)
 		{
+            // we don't have ref. prefix
 			return parameter;
 		}
 
@@ -93,7 +95,7 @@ struct Resolver
 class Query
 {
 public:
-	Query(const json &object) : last_(0)
+	Query(const json &object, const json &data) : last_(0)
 	{
 		const json &body = object["body"];
 		const json &parameters = body["params"];
@@ -105,11 +107,12 @@ public:
 
 		auto i = sql.begin();
 		alias_ = *i++;
-
 		sql_ = *i++;
+
 		Resolver r1(parameters);
-		Resolver r2(object);
-		while (i != sql.end())
+		Resolver r2(json::object({ {"data", data} }));
+
+        while (i != sql.end())
 		{
 			const json &e = *i++;
 			if (e.is_number())
@@ -251,7 +254,7 @@ struct ParentSQLFunction : public Function
 
 	json execute(const json &v) const override
 	{
-		Query query(object_);
+		Query query(object_, object_["data"]);
 		auto console = spdlog::get("console");
 		try
 		{
@@ -332,10 +335,9 @@ struct ChildSQLFunction : public Function
 
 	json execute(const json &v) const override
 	{
-		Query query(object_);
+		Query query(object_, v);
 
 		json data(v);
-
 		query.place(":ids", extract_keys(data));
 
 		auto console = spdlog::get("console");
@@ -423,6 +425,8 @@ struct ChildSQLFunction : public Function
 			result["list"] = list;
 
 			results_.push(Result(json::object({ {"result", result} })));
+
+            merge(result, data["result"]);
 
 			return data;
 		}

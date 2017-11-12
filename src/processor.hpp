@@ -12,6 +12,7 @@
 #include <tbb/tbb.h>
 #include <tbb/flow_graph.h>
 
+#include "common.hpp"
 #include "context.hpp"
 #include "sql.hpp"
 
@@ -47,17 +48,6 @@ struct Request
 	}
 };
 
-void merge(const json &from, json &to)
-{
-	for (json::const_iterator j = from.begin(); j != from.end(); j++)
-	{
-		if (to.find(j.key()) == to.end())
-		{
-			to[j.key()] = j.value();
-		}
-	}
-}
-
 std::string merge(const std::vector<Result> &results)
 {
 	auto console = spdlog::get("console");
@@ -66,7 +56,7 @@ std::string merge(const std::vector<Result> &results)
 	json::const_pointer parent = nullptr;
 	for (auto &e : results)
 	{
-		console->debug("result object: {0}", e.data.dump());
+		console->debug("merge result object: {0}", e.data.dump());
 
 		const json &list = e.data["result"]["list"];
 

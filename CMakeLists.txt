@@ -4,6 +4,14 @@ project (Machine)
 
 set (CMAKE_BUILD_TYPE Debug)
 
+set (SOURCE_FILES
+        src/context.hpp
+        src/function.hpp
+        src/processor.hpp
+        src/server.hpp
+        src/sql.hpp
+        src/main.cpp src/common.hpp)
+
 link_libraries (pthread)
 
 find_package (Boost COMPONENTS system REQUIRED)
@@ -19,7 +27,7 @@ include_directories (lib/spdlog/include)
 include_directories (lib/json/include)
 include_directories (lib/catch/include)
 
-add_executable (Machine src/main.cpp)
+add_executable (Machine ${SOURCE_FILES})
 target_link_libraries (Machine ${Boost_SYSTEM_LIBRARY})
 target_link_libraries (Machine tbb)
 target_link_libraries (Machine mysqlcppconn)
