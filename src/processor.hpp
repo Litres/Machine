@@ -39,7 +39,7 @@ struct Request
 
 		std::string type(value.begin(), p);
 		std::string name(p + 1, value.end());
-		if (type.size() == 0 || name.size() == 0)
+		if (type.empty() || name.empty())
 		{
 			throw std::exception();
 		}

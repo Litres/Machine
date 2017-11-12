@@ -12,7 +12,7 @@ struct Result
 {
 	json data;
 
-	Result(const json &data) : data(data) {}
+	explicit Result(const json &data) : data(data) {}
 };
 
 struct Queue
@@ -47,7 +47,7 @@ struct Function
 class FunctionBridge
 {
 public:
-	FunctionBridge(std::shared_ptr<Function> f) : f_(f) {}
+	explicit FunctionBridge(std::shared_ptr<Function> f) : f_(f) {}
 
 	json operator()(json v) const
 	{

@@ -66,7 +66,7 @@ struct Resolver
 {
 	json object_;
 
-	Resolver(const json &object) : object_(object) {}
+	explicit Resolver(const json &object) : object_(object) {}
 
 	std::string resolve(const std::string &parameter)
 	{
@@ -171,7 +171,7 @@ public:
 
 		for (auto &value : unnamed_)
 		{
-			auto p = sql_.find("?", last_);
+			auto p = sql_.find('?', last_);
 			if (p == std::string::npos)
 			{
 				throw std::logic_error(value);
@@ -280,7 +280,7 @@ struct ParentSQLFunction : public Function
 				{
 					throw std::logic_error("id not found");
 				}
-				std::string key = boost::lexical_cast<std::string>(p->get<long>());
+				std::string key = std::to_string(p->get<long>());
 				hash[key] = row;
 				order.push_back({ {"id", key} });
 			}
@@ -363,7 +363,7 @@ struct ChildSQLFunction : public Function
 					throw std::logic_error("id not found");
 				}
 
-				std::string key = boost::lexical_cast<std::string>(p1->get<long>());
+				std::string key = std::to_string(p1->get<long>());
 				if (rows.find(key) == rows.end())
 				{
 					rows[key] = json::array();

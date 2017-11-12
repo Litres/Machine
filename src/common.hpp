@@ -8,9 +8,6 @@ using json = nlohmann::json;
 
 void merge(const json &from, json &to)
 {
-    //auto console = spdlog::get("console");
-    //console->debug("merge result from {0} to {1}", from.dump(), to.dump());
-
     for (json::const_iterator j = from.begin(); j != from.end(); j++)
     {
         if (j.value().is_object())
