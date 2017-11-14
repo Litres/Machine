@@ -31,7 +31,7 @@ TEST_CASE( "sql::Query", TAG )
 	SECTION( "no parameters" )
 	{
 		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id FROM user\" ] } } }");
-		machine::sql::Query query(object);
+		machine::sql::Query query(object, nlohmann::json::object());
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id FROM user" );
@@ -40,7 +40,7 @@ TEST_CASE( "sql::Query", TAG )
 	SECTION( "value parameter" )
 	{
 		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id, name FROM user WHERE id = ?\", 1 ] } } }");
-		machine::sql::Query query(object);
+		machine::sql::Query query(object, nlohmann::json::object());
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id, name FROM user WHERE id = 1" );
@@ -49,7 +49,7 @@ TEST_CASE( "sql::Query", TAG )
 	SECTION( "reference parameter" )
 	{
 		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id, name FROM user WHERE id = ?\", \"ref.id\" ], \"id\": 1 } } }");
-		machine::sql::Query query(object);
+		machine::sql::Query query(object, nlohmann::json::object());
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id, name FROM user WHERE id = 1" );
@@ -57,8 +57,10 @@ TEST_CASE( "sql::Query", TAG )
 
 	SECTION( "global reference parameter" )
 	{
-		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id, name FROM user WHERE id = ?\", \"ref.id\" ], \"id\": \"ref.data.request.id\" } }, \"data\": { \"request\": { \"id\": 1 } } }");
-		machine::sql::Query query(object);
+		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id, name FROM user WHERE id = ?\", \"ref.id\" ], \"id\": \"ref.data.request.id\" } } }");
+		auto data = nlohmann::json::parse("{ \"request\": { \"id\": 1 } }");
+
+		machine::sql::Query query(object, data);
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id, name FROM user WHERE id = 1" );
@@ -67,7 +69,7 @@ TEST_CASE( "sql::Query", TAG )
 	SECTION( "two parameters" )
 	{
 		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id, name, age FROM user WHERE id = ? AND age > ?\", 1, 25 ] } } }");
-		machine::sql::Query query(object);
+		machine::sql::Query query(object, nlohmann::json::object());
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id, name, age FROM user WHERE id = 1 AND age > 25" );
@@ -76,7 +78,7 @@ TEST_CASE( "sql::Query", TAG )
 	SECTION( "named placeholder" )
 	{
 		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id, name, age FROM user WHERE id = ? AND age > :age\", 1, { \":age\": 25 } ] } } }");
-		machine::sql::Query query(object);
+		machine::sql::Query query(object, nlohmann::json::object());
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbh" );
 		REQUIRE( query.sql() == "SELECT id, name, age FROM user WHERE id = 1 AND age > 25" );
@@ -84,8 +86,10 @@ TEST_CASE( "sql::Query", TAG )
 
 	SECTION( "another" )
 	{
-		auto object = nlohmann::json::parse("{ \"data\": { \"request\": { \"baz\": 6, \"param\": { \"foo\": 1 }, \"Lib\": 100 }, \"other\" : { \"data\": \"may be here\" } }, \"body\": { \"params\": { \"sql\": [\"dbl\", \"SELECT id, name, ddate FROM test_rmd WHERE id = ? OR id BETWEEN ? AND :bar ORDER BY id DESC\", \"ref.t1\", { \":bar\": \"ref.param2\" }, 3], \"t1\": \"ref.data.request.param.foo\", \"list_path\": [\"путь\", \"для\", \"сохранения\", \"списка\"], \"param2\": \"ref.data.request.baz\" }, \"request\": \"l_sql\" } }");
-		machine::sql::Query query(object);
+		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [\"dbl\", \"SELECT id, name, ddate FROM test_rmd WHERE id = ? OR id BETWEEN ? AND :bar ORDER BY id DESC\", \"ref.t1\", { \":bar\": \"ref.param2\" }, 3], \"t1\": \"ref.data.request.param.foo\", \"list_path\": [\"путь\", \"для\", \"сохранения\", \"списка\"], \"param2\": \"ref.data.request.baz\" }, \"request\": \"l_sql\" } }");
+		auto data = nlohmann::json::parse("{ \"request\": { \"baz\": 6, \"param\": { \"foo\": 1 }, \"Lib\": 100 }, \"other\" : { \"data\": \"may be here\" } }");
+
+		machine::sql::Query query(object, data);
 		query.bind([](const std::string &value) { return value; });
 		REQUIRE( query.alias() == "dbl" );
 		REQUIRE( query.sql() == "SELECT id, name, ddate FROM test_rmd WHERE id = 1 OR id BETWEEN 3 AND 6 ORDER BY id DESC" );
