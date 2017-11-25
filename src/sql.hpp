@@ -8,6 +8,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/format.hpp>
 
 #include <mysql_connection.h>
 #include <cppconn/driver.h>
@@ -24,25 +25,6 @@ namespace sql
 {
 
 using json = nlohmann::json;
-
-template <typename Context>
-class Pool
-{
-public:
-	std::shared_ptr<::sql::Connection> get(const std::string &alias)
-	{
-		const json &parameters = Context::instance().settings()["db"][alias];
-		const std::string &server = parameters["server"];
-		const std::string &username = parameters["username"];
-		const std::string &password = parameters["password"];
-		const std::string &schema = parameters["schema"];
-
-		auto driver = get_driver_instance();
-		std::shared_ptr<::sql::Connection> connection(driver->connect("tcp://" + server, username, password));
-		connection->setSchema(schema);
-		return connection;
-	}
-};
 
 const json &travel(const json &object, const std::string &path)
 {
@@ -95,7 +77,7 @@ struct Resolver
 class Query
 {
 public:
-	Query(const json &object, const json &data) : last_(0)
+	Query(const json &object, const json &data) : last_(0), area_(-1), user_(-1)
 	{
 		const json &body = object["body"];
 		const json &parameters = body["params"];
@@ -147,6 +129,19 @@ public:
 				}
 			}
 		}
+
+		// TODO another way?
+		auto p1 = find(data, "request.Lib");
+		if (p1 != nullptr)
+		{
+			area_ = (*p1).get<long>();
+		}
+
+		auto p2 = find(data, "user.id");
+		if (p2 != nullptr)
+		{
+			user_ = (*p2).get<long>();
+		}
 	}
 
 	void place(const std::string &name, const std::string &value)
@@ -196,6 +191,16 @@ public:
 		return sql_;
 	}
 
+	long area() const
+	{
+		return area_;
+	}
+
+	long user() const
+	{
+		return user_;
+	}
+
 private:
 	void place(const std::string &value)
 	{
@@ -208,6 +213,9 @@ private:
 
 	std::vector<std::string> unnamed_;
 	std::map<std::string, std::string> named_;
+
+	long area_;
+	long user_;
 };
 
 json convert(std::unique_ptr<::sql::ResultSet> &set, unsigned int i)
@@ -248,6 +256,81 @@ json convert(std::unique_ptr<::sql::ResultSet> &set)
 }
 
 template <typename Context>
+class Database
+{
+public:
+	std::vector<json> execute(Query &query)
+	{
+		auto console = spdlog::get("console");
+
+		std::unique_ptr<::sql::Connection> connection(create(query));
+		std::unique_ptr<::sql::Statement> statement(connection->createStatement());
+
+		query.bind([connection](const std::string &value) {
+			auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
+			return p->escapeString(value);
+		});
+
+		console->debug("executing SQL query: {0}", query.sql());
+		std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
+
+		std::vector<json> result;
+		while (set->next())
+		{
+			result.emplace_back(convert(set));
+		}
+		return result;
+	}
+
+private:
+	::sql::Connection *create(const Query &query)
+	{
+		const json &parameters = Context::instance().settings()["db"][query.alias()];
+		const std::string &username = parameters["username"];
+		const std::string &password = parameters["password"];
+
+		auto driver = get_driver_instance();
+		auto connection = driver->connect("tcp://" + server(query, parameters), username, password);
+		connection->setSchema(schema(query, parameters));
+		return connection;
+	}
+
+	std::string server(const Query &query, const json &parameters)
+	{
+		auto p1 = parameters.find("server");
+		if (p1 != parameters.end())
+		{
+			return *p1;
+		}
+
+		auto p2 = parameters["shards"];
+		if (query.user() == -1)
+		{
+			throw std::logic_error("user id expected");
+		}
+
+		return p2[query.user() % p2.size()].get<std::string>();
+	}
+
+	std::string schema(const Query &query, const json &parameters)
+	{
+		auto p1 = parameters.find("schema");
+		if (p1 != parameters.end())
+		{
+			return *p1;
+		}
+
+		auto p2 = parameters["schema_template"];
+		if (query.area() == -1)
+		{
+			throw std::logic_error("area expected");
+		}
+
+		return (boost::format(p2.get<std::string>()) % query.area()).str();
+	}
+};
+
+template <typename Context>
 struct ParentSQLFunction : public Function
 {
 	ParentSQLFunction(const json &object, Queue &results) : Function(object, results) {}
@@ -255,26 +338,13 @@ struct ParentSQLFunction : public Function
 	json execute(const json &v) const override
 	{
 		Query query(object_, object_["data"]);
-		auto console = spdlog::get("console");
 		try
 		{
-			std::shared_ptr<::sql::Connection> connection = Context::instance().pool()->get(query.alias());
-			std::unique_ptr<::sql::Statement> statement(connection->createStatement());
-
-			query.bind([connection](const std::string &value) {
-				auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
-				return p->escapeString(value);
-			});
-
-			console->debug("executing SQL query: {0}", query.sql());
-			std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
-			
 			json hash = json::object();
 			json order = json::array();
 			
-			while (set->next())
+			for (json &row : Context::instance().database()->execute(query))
 			{
-				json row = convert(set);
 				auto p = row.find("id");
 				if (p == row.end())
 				{
@@ -304,7 +374,7 @@ struct ParentSQLFunction : public Function
 		}
 		catch (const ::sql::SQLException &e)
 		{
-			console->error(e.what());
+			spdlog::get("console")->error(e.what());
 			return json::object();
 		}
 	}
@@ -340,23 +410,11 @@ struct ChildSQLFunction : public Function
 		json data(v);
 		query.place(":ids", extract_keys(data));
 
-		auto console = spdlog::get("console");
 		try
 		{
-			std::shared_ptr<::sql::Connection> connection = Context::instance().pool()->get(query.alias());
-			std::unique_ptr<::sql::Statement> statement(connection->createStatement());
-
-			query.bind([connection](const std::string &value) {
-				auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
-				return p->escapeString(value);
-			});
-
-			console->debug("executing SQL query: {0}", query.sql());
-			std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
 			json rows = json::object();
-			while (set->next())
+			for (json &row : Context::instance().database()->execute(query))
 			{
-				json row = convert(set);
 				auto p1 = row.find("id");
 				if (p1 == row.end())
 				{
@@ -432,7 +490,7 @@ struct ChildSQLFunction : public Function
 		}
 		catch (const ::sql::SQLException &e)
 		{
-			console->error(e.what());
+			spdlog::get("console")->error(e.what());
 			return json::object();
 		}
 	}

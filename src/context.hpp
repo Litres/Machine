@@ -24,7 +24,7 @@ public:
 		std::ifstream file("settings.json");
 		file >> settings_;
 
-		pool_ = std::make_shared<machine::sql::Pool<Context>>();
+		database_ = std::make_shared<machine::sql::Database<Context>>();
 	}
 
 	const nlohmann::json &settings() const
@@ -32,16 +32,16 @@ public:
 		return settings_;
 	}
 
-	std::shared_ptr<machine::sql::Pool<Context>> pool()
+	std::shared_ptr<machine::sql::Database<Context>> database()
 	{
-		return pool_;
+		return database_;
 	}
 
 private:
-	Context() {}
+	Context() = default;
 
 	nlohmann::json settings_;
-	std::shared_ptr<machine::sql::Pool<Context>> pool_;
+	std::shared_ptr<machine::sql::Database<Context>> database_;
 };
 
 }

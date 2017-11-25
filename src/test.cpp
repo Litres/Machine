@@ -94,4 +94,15 @@ TEST_CASE( "sql::Query", TAG )
 		REQUIRE( query.alias() == "dbl" );
 		REQUIRE( query.sql() == "SELECT id, name, ddate FROM test_rmd WHERE id = 1 OR id BETWEEN 3 AND 6 ORDER BY id DESC" );
 	}
+
+	SECTION( "area and user" )
+	{
+		auto object = nlohmann::json::parse("{ \"body\": { \"params\": { \"sql\": [ \"dbh\", \"SELECT id FROM user\" ] } } }");
+		auto data = nlohmann::json::parse("{ \"request\": { \"Lib\": 100 }, \"user\": { \"id\": 6 } }");
+
+		machine::sql::Query query(object, data);
+		query.bind([](const std::string &value) { return value; });
+		REQUIRE( query.area() == 100 );
+		REQUIRE( query.user() == 6 );
+	}
 }
