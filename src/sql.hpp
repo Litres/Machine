@@ -218,6 +218,54 @@ private:
 	long user_;
 };
 
+std::string server(const Query &query, const json &parameters)
+{
+    auto p1 = parameters.find("server");
+    if (p1 != parameters.end())
+    {
+        return *p1;
+    }
+
+    auto p2 = parameters["shards"];
+    if (query.user() == -1)
+    {
+        throw std::logic_error("user id expected");
+    }
+
+    return p2[query.user() % p2.size()].get<std::string>();
+}
+
+std::string schema(const Query &query, const json &parameters)
+{
+    auto p1 = parameters.find("schema");
+    if (p1 != parameters.end())
+    {
+        return *p1;
+    }
+
+    auto p2 = parameters["schema_template"];
+    if (query.area() == -1)
+    {
+        throw std::logic_error("area expected");
+    }
+
+    return (boost::format(p2.get<std::string>()) % query.area()).str();
+}
+
+bool keep(const Query &query, const json &parameters)
+{
+    auto p = parameters.find("keep_connect");
+    if (p != parameters.end())
+    {
+		auto array = *p;
+        if (std::find(array.begin(), array.end(), query.area()) != array.end())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 json convert(std::unique_ptr<::sql::ResultSet> &set, unsigned int i)
 {
 	switch (set->getMetaData()->getColumnType(i))
@@ -266,7 +314,7 @@ public:
 		std::unique_ptr<::sql::Connection> connection(create(query));
 		std::unique_ptr<::sql::Statement> statement(connection->createStatement());
 
-		query.bind([connection](const std::string &value) {
+		query.bind([&connection](const std::string &value) {
 			auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
 			return p->escapeString(value);
 		});
@@ -293,40 +341,6 @@ private:
 		auto connection = driver->connect("tcp://" + server(query, parameters), username, password);
 		connection->setSchema(schema(query, parameters));
 		return connection;
-	}
-
-	std::string server(const Query &query, const json &parameters)
-	{
-		auto p1 = parameters.find("server");
-		if (p1 != parameters.end())
-		{
-			return *p1;
-		}
-
-		auto p2 = parameters["shards"];
-		if (query.user() == -1)
-		{
-			throw std::logic_error("user id expected");
-		}
-
-		return p2[query.user() % p2.size()].get<std::string>();
-	}
-
-	std::string schema(const Query &query, const json &parameters)
-	{
-		auto p1 = parameters.find("schema");
-		if (p1 != parameters.end())
-		{
-			return *p1;
-		}
-
-		auto p2 = parameters["schema_template"];
-		if (query.area() == -1)
-		{
-			throw std::logic_error("area expected");
-		}
-
-		return (boost::format(p2.get<std::string>()) % query.area()).str();
 	}
 };
 
