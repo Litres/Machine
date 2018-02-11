@@ -116,7 +116,7 @@ TEST_CASE( "sql::server", TAG )
 		machine::sql::Query query(object, nlohmann::json::object());
 
 		auto parameters = nlohmann::json::parse(R"({ "server": "127.0.0.1:3306" })");
-		REQUIRE( machine::sql::server(query, parameters) == "127.0.0.1:3306" );
+		REQUIRE( machine::sql::make_server(query, parameters) == "127.0.0.1:3306" );
 	}
 
 	SECTION( "shards" )
@@ -126,7 +126,7 @@ TEST_CASE( "sql::server", TAG )
 		machine::sql::Query query(object, data);
 
 		auto parameters = nlohmann::json::parse(R"({ "shards": ["127.0.0.1:3306", "db.test_1:3306", "db.test_2:3306"] })");
-		REQUIRE( machine::sql::server(query, parameters) == "db.test_2:3306" );
+		REQUIRE( machine::sql::make_server(query, parameters) == "db.test_2:3306" );
 	}
 }
 
@@ -138,7 +138,7 @@ TEST_CASE( "sql::schema", TAG )
 		machine::sql::Query query(object, nlohmann::json::object());
 
 		auto parameters = nlohmann::json::parse(R"({ "schema": "test" })");
-		REQUIRE( machine::sql::schema(query, parameters) == "test" );
+		REQUIRE( machine::sql::make_schema(query, parameters) == "test" );
 	}
 
 	SECTION( "template" )
@@ -148,7 +148,7 @@ TEST_CASE( "sql::schema", TAG )
 		machine::sql::Query query(object, data);
 
 		auto parameters = nlohmann::json::parse(R"({ "schema_template": "lib_area_%d" })");
-		REQUIRE( machine::sql::schema(query, parameters) == "lib_area_100" );
+		REQUIRE( machine::sql::make_schema(query, parameters) == "lib_area_100" );
 	}
 }
 
@@ -161,7 +161,7 @@ TEST_CASE( "sql::keep", TAG )
 		machine::sql::Query query(object, data);
 
 		auto parameters = nlohmann::json::parse(R"({ "keep_connect": [2] })");
-		REQUIRE( !machine::sql::keep(query, parameters) );
+		REQUIRE( !machine::sql::keep_connection(query, parameters) );
 	}
 
 	SECTION( "yes" )
@@ -171,6 +171,6 @@ TEST_CASE( "sql::keep", TAG )
 		machine::sql::Query query(object, data);
 
 		auto parameters = nlohmann::json::parse(R"({ "keep_connect": [1, 2] })");
-		REQUIRE( machine::sql::keep(query, parameters) );
+		REQUIRE( machine::sql::keep_connection(query, parameters) );
 	}
 }

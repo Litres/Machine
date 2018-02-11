@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <sstream>
+#include <mutex>
+#include <unordered_map>
+#include <algorithm>
 
 #include <spdlog/spdlog.h>
 #include <json.hpp>
@@ -218,7 +221,7 @@ private:
 	long user_;
 };
 
-std::string server(const Query &query, const json &parameters)
+std::string make_server(const Query &query, const json &parameters)
 {
     auto p1 = parameters.find("server");
     if (p1 != parameters.end())
@@ -235,7 +238,7 @@ std::string server(const Query &query, const json &parameters)
     return p2[query.user() % p2.size()].get<std::string>();
 }
 
-std::string schema(const Query &query, const json &parameters)
+std::string make_schema(const Query &query, const json &parameters)
 {
     auto p1 = parameters.find("schema");
     if (p1 != parameters.end())
@@ -252,7 +255,7 @@ std::string schema(const Query &query, const json &parameters)
     return (boost::format(p2.get<std::string>()) % query.area()).str();
 }
 
-bool keep(const Query &query, const json &parameters)
+bool keep_connection(const Query &query, const json &parameters)
 {
     auto p = parameters.find("keep_connect");
     if (p != parameters.end())
@@ -307,15 +310,17 @@ template <typename Context>
 class Database
 {
 public:
+    Database() : last_id_(0) {}
+
 	std::vector<json> execute(Query &query)
 	{
 		auto console = spdlog::get("console");
 
-		std::unique_ptr<::sql::Connection> connection(create(query));
-		std::unique_ptr<::sql::Statement> statement(connection->createStatement());
+		std::unique_ptr<Guard> guard(create(query));
+		std::unique_ptr<::sql::Statement> statement(guard->get()->createStatement());
 
-		query.bind([&connection](const std::string &value) {
-			auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(connection.get());
+		query.bind([&guard](const std::string &value) {
+			auto p = dynamic_cast<::sql::mysql::MySQL_Connection *>(guard->get());
 			return p->escapeString(value);
 		});
 
@@ -331,17 +336,131 @@ public:
 	}
 
 private:
-	::sql::Connection *create(const Query &query)
+    struct Pointer
+    {
+        explicit Pointer(::sql::Connection *connection, int id) : connection(connection), id(id), free(true) {}
+
+        ~Pointer()
+        {
+            delete connection;
+        }
+
+        ::sql::Connection *connection;
+        int id;
+        bool free;
+    };
+
+    typedef std::unique_ptr<Pointer> UniquePointer;
+    typedef std::vector<UniquePointer> PointerVector;
+    typedef std::unordered_map<std::string, PointerVector> Pool;
+
+    class Guard
+    {
+    public:
+        explicit Guard(Pointer *pointer) : pointer_(pointer) {}
+
+        ::sql::Connection *get() const
+        {
+            return pointer_->connection;
+        }
+
+        virtual ~Guard() = default;
+
+    protected:
+        Pointer *pointer_;
+    };
+
+    class FreeGuard : public Guard
+    {
+    public:
+        explicit FreeGuard(Pointer *pointer) : Guard(pointer) {}
+
+        ~FreeGuard() override
+        {
+            delete Guard::pointer_;
+        }
+    };
+
+    class ReleaseGuard : public Guard
+    {
+    public:
+        explicit ReleaseGuard(Pointer *pointer) : Guard(pointer) {}
+
+        ~ReleaseGuard() override
+        {
+            Guard::pointer_->free = true;
+        }
+    };
+
+    Guard *create(const Query &query)
 	{
-		const json &parameters = Context::instance().settings()["db"][query.alias()];
+        const json &parameters = Context::instance().settings()["db"][query.alias()];
+        if (keep_connection(query, parameters))
+        {
+            return get(query);
+        }
+
 		const std::string &username = parameters["username"];
 		const std::string &password = parameters["password"];
 
 		auto driver = get_driver_instance();
-		auto connection = driver->connect("tcp://" + server(query, parameters), username, password);
-		connection->setSchema(schema(query, parameters));
-		return connection;
+		auto pointer = new Pointer(driver->connect("tcp://" + make_server(query, parameters), username, password), 0);
+        pointer->connection->setSchema(make_schema(query, parameters));
+
+		return new FreeGuard(pointer);
 	}
+
+    Guard *get(const Query &query)
+    {
+        auto console = spdlog::get("console");
+
+        const json &parameters = Context::instance().settings()["db"][query.alias()];
+        const std::string server = make_server(query, parameters);
+        const std::string schema = make_schema(query, parameters);
+
+        std::lock_guard<std::mutex> guard(mutex_);
+
+        const std::string key = server + ":" + schema;
+        auto p1 = pool_.find(key);
+        if (p1 != pool_.end())
+        {
+            auto &v = p1->second;
+            auto p2 = std::find_if(v.begin(), v.end(), [](const UniquePointer &pointer) { return pointer->free; });
+            if (p2 != v.end())
+            {
+                if ((*p2)->connection->isValid())
+                {
+                    console->debug("connection {0}:{1} is valid", key, (*p2)->id);
+                    (*p2)->free = false;
+                    return new ReleaseGuard((*p2).get());
+                }
+
+                console->debug("connection {0}:{1} is not valid", key, (*p2)->id);
+                v.erase(p2);
+            }
+        }
+
+        const std::string &username = parameters["username"];
+        const std::string &password = parameters["password"];
+
+        auto driver = get_driver_instance();
+        auto pointer = new Pointer(driver->connect("tcp://" + server, username, password), last_id_++);
+        pointer->connection->setSchema(schema);
+
+        console->debug("add connection {0}:{1} to pool", key, pointer->id);
+        if (pool_.find(key) == pool_.end())
+        {
+            pool_[key] = PointerVector();
+        }
+        pool_[key].emplace_back(UniquePointer(pointer));
+
+        return new ReleaseGuard(pointer);
+    }
+
+private:
+    std::mutex mutex_;
+    Pool pool_;
+    int last_id_;
 };
 
 template <typename Context>
