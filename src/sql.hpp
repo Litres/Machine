@@ -410,7 +410,7 @@ private:
 		return new FreeGuard(pointer);
 	}
 
-    Guard *get(const Query &query)
+	ReleaseGuard *get(const Query &query)
     {
         auto console = spdlog::get("console");
 
@@ -471,45 +471,38 @@ struct ParentSQLFunction : public Function
 	json execute(const json &v) const override
 	{
 		Query query(object_, object_["data"]);
-		try
-		{
-			json hash = json::object();
-			json order = json::array();
-			
-			for (json &row : Context::instance().database()->execute(query))
-			{
-				auto p = row.find("id");
-				if (p == row.end())
-				{
-					throw std::logic_error("id not found");
-				}
-				std::string key = std::to_string(p->get<long>());
-				hash[key] = row;
-				order.push_back({ {"id", key} });
-			}
 
-			json list = json::object();
-			list["parent"] = true;
-			list["hash_by_id"] = hash;
-			list["rows"] = hash.size();
-			list["ordered_list"] = order;
-			list["path"] = object_["body"]["params"]["list_path"];
+        json hash = json::object();
+        json order = json::array();
 
-			json result = json::object();
-			result["list"] = list;
+        for (json &row : Context::instance().database()->execute(query))
+        {
+            auto p = row.find("id");
+            if (p == row.end())
+            {
+                throw std::logic_error("id not found");
+            }
+            std::string key = std::to_string(p->get<long>());
+            hash[key] = row;
+            order.push_back({ {"id", key} });
+        }
 
-			results_.push(Result(json::object({ {"result", result} })));
+        json list = json::object();
+        list["parent"] = true;
+        list["hash_by_id"] = hash;
+        list["rows"] = hash.size();
+        list["ordered_list"] = order;
+        list["path"] = object_["body"]["params"]["list_path"];
 
-			json data(v);
-			data["result"] = result;
+        json result = json::object();
+        result["list"] = list;
 
-			return data;
-		}
-		catch (const ::sql::SQLException &e)
-		{
-			spdlog::get("console")->error(e.what());
-			return json::object();
-		}
+        results_.push(Result(json::object({ {"result", result} })));
+
+        json data(v);
+        data["result"] = result;
+
+        return data;
 	}
 };
 
@@ -543,89 +536,81 @@ struct ChildSQLFunction : public Function
 		json data(v);
 		query.place(":ids", extract_keys(data));
 
-		try
-		{
-			json rows = json::object();
-			for (json &row : Context::instance().database()->execute(query))
-			{
-				auto p1 = row.find("id");
-				if (p1 == row.end())
-				{
-					throw std::logic_error("id not found");
-				}
+        json rows = json::object();
+        for (json &row : Context::instance().database()->execute(query))
+        {
+            auto p1 = row.find("id");
+            if (p1 == row.end())
+            {
+                throw std::logic_error("id not found");
+            }
 
-				std::string key = std::to_string(p1->get<long>());
-				if (rows.find(key) == rows.end())
-				{
-					rows[key] = json::array();
-				}
+            std::string key = std::to_string(p1->get<long>());
+            if (rows.find(key) == rows.end())
+            {
+                rows[key] = json::array();
+            }
 
-				// process id
-				auto p2 = row.find("as_id");
-				if (p2 != row.end())
-				{
-					*p1 = *p2;
-					row.erase(p2);
-				}
-				else
-				{
-					row.erase(p1);
-				}
+            // process id
+            auto p2 = row.find("as_id");
+            if (p2 != row.end())
+            {
+                *p1 = *p2;
+                row.erase(p2);
+            }
+            else
+            {
+                row.erase(p1);
+            }
 
-				rows[key].push_back(row);
-			}
+            rows[key].push_back(row);
+        }
 
-			json hash = json::object();
+        json hash = json::object();
 
-			for (json::iterator i = rows.begin(); i != rows.end(); i++)
-			{
-				json row = json::object();
+        for (json::iterator i = rows.begin(); i != rows.end(); i++)
+        {
+            json row = json::object();
 
-				json &array = i.value();
-				if (array.size() == 1)
-				{
-					json &e = array[0];
-					for (json::iterator j = e.begin(); j != e.end(); j++)
-					{
-						row[j.key()] = j.value();
-					}
-				}
-				else
-				{
-					json::pointer p = &row;
-					const json &path = object_["body"]["params"]["hash_of_lists"];
-					for (size_t j = 0; j < path.size() - 1; j++)
-					{
-						json &current = *p;
-						std::string key = path[j];
-						current[key] = json::object();
-						p = &(current[key]);
-					}
-					json &current = *p;
-					current[path.back().get<std::string>()] = array;
-				}
+            json &array = i.value();
+            if (array.size() == 1)
+            {
+                json &e = array[0];
+                for (json::iterator j = e.begin(); j != e.end(); j++)
+                {
+                    row[j.key()] = j.value();
+                }
+            }
+            else
+            {
+                json::pointer p = &row;
+                const json &path = object_["body"]["params"]["hash_of_lists"];
+                for (size_t j = 0; j < path.size() - 1; j++)
+                {
+                    json &current = *p;
+                    std::string key = path[j];
+                    current[key] = json::object();
+                    p = &(current[key]);
+                }
+                json &current = *p;
+                current[path.back().get<std::string>()] = array;
+            }
 
-				hash[i.key()] = row;
-			}
+            hash[i.key()] = row;
+        }
 
-			json list = json::object();
-			list["hash_by_id"] = hash;
-			list["rows"] = hash.size();
+        json list = json::object();
+        list["hash_by_id"] = hash;
+        list["rows"] = hash.size();
 
-			json result = json::object();
-			result["list"] = list;
+        json result = json::object();
+        result["list"] = list;
 
-			results_.push(Result(json::object({ {"result", result} })));
+        results_.push(Result(json::object({ {"result", result} })));
 
-            merge(result, data["result"]);
+        merge(result, data["result"]);
 
-			return data;
-		}
-		catch (const ::sql::SQLException &e)
-		{
-			spdlog::get("console")->error(e.what());
-			return json::object();
-		}
+        return data;
 	}
 };
 

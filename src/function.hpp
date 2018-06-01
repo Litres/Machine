@@ -53,15 +53,7 @@ public:
 	{
 		auto console = spdlog::get("console");
 		console->debug("function object: {0}", f_->object_.dump());
-		try
-		{
-			return f_->execute(v);
-		}
-		catch (const std::exception &e)
-		{
-			console->error(e.what());
-			return json::object();
-		}
+        return f_->execute(v);
 	}
 
 private:
