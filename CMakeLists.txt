@@ -10,9 +10,12 @@ set (SOURCE_FILES
         src/processor.hpp
         src/server.hpp
         src/sql.hpp
-        src/main.cpp src/common.hpp)
+        src/common.hpp
+        src/cache.hpp
+        src/hash.hpp
+        src/main.cpp)
 
-link_libraries (pthread)
+link_libraries (pthread memcached crypto++)
 
 find_package (Boost COMPONENTS system REQUIRED)
 include_directories (${Boost_INCLUDE_DIRS})
