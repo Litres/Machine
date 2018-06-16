@@ -25,7 +25,7 @@ public:
 		std::ifstream file("settings.json");
 		file >> settings_;
 
-		database_ = std::make_shared<sql::Database<Context>>();
+		database_.reset(new machine::sql::DefaultDatabase(settings_));
 
 		if (settings_.find("cache") != settings_.end())
 		{
@@ -35,7 +35,6 @@ public:
 		{
 			cache_.reset(new cache::NullCache());
 		}
-
 	}
 
 	const nlohmann::json &settings() const
@@ -43,9 +42,9 @@ public:
 		return settings_;
 	}
 
-	std::shared_ptr<sql::Database<Context>> database()
+	machine::sql::Database *database()
 	{
-		return database_;
+		return database_.get();
 	}
 
 	cache::Cache *cache()
@@ -57,7 +56,7 @@ private:
 	Context() = default;
 
 	nlohmann::json settings_;
-	std::shared_ptr<sql::Database<Context>> database_;
+	std::unique_ptr<machine::sql::Database> database_;
 	std::unique_ptr<cache::Cache> cache_;
 };
 
