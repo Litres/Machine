@@ -306,13 +306,21 @@ json convert(std::unique_ptr<::sql::ResultSet> &set)
 	return row;
 }
 
-template <typename Context>
 class Database
 {
 public:
-    Database() : last_id_(0) {}
+	virtual std::vector<json> execute(Query &query) = 0;
 
-	std::vector<json> execute(Query &query)
+protected:
+	Database() = default;
+};
+
+class DefaultDatabase : public Database
+{
+public:
+    explicit DefaultDatabase(const json &settings) : settings_(settings), last_id_(0) {}
+
+	std::vector<json> execute(Query &query) override
 	{
 		auto console = spdlog::get("console");
 
@@ -394,7 +402,7 @@ private:
 
     Guard *create(const Query &query)
 	{
-        const json &parameters = Context::instance().settings()["db"][query.alias()];
+        const json &parameters = settings_["db"][query.alias()];
         if (keep_connection(query, parameters))
         {
             return get(query);
@@ -414,7 +422,7 @@ private:
     {
         auto console = spdlog::get("console");
 
-        const json &parameters = Context::instance().settings()["db"][query.alias()];
+        const json &parameters = settings_["db"][query.alias()];
         const std::string server = make_server(query, parameters);
         const std::string schema = make_schema(query, parameters);
 
@@ -458,9 +466,10 @@ private:
     }
 
 private:
+	const json &settings_;
+	int last_id_;
     std::mutex mutex_;
     Pool pool_;
-    int last_id_;
 };
 
 template <typename Context>
