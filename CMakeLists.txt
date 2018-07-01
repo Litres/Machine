@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.8)
-add_compile_options (-std=c++11)
+add_compile_options (-std=c++14)
 project (Machine)
 
 set (CMAKE_BUILD_TYPE Debug)
@@ -11,8 +11,8 @@ set (SOURCE_FILES
         src/server.hpp
         src/sql.hpp
         src/common.hpp
-        src/cache.hpp
         src/hash.hpp
+        src/cache.hpp
         src/main.cpp)
 
 link_libraries (pthread memcached crypto++)

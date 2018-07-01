@@ -25,15 +25,15 @@ public:
 		std::ifstream file("settings.json");
 		file >> settings_;
 
-		database_.reset(new machine::sql::DefaultDatabase(settings_));
+		database_ = std::make_unique<machine::sql::DefaultDatabase>(settings_);
 
 		if (settings_.find("cache") != settings_.end())
 		{
-			cache_.reset(new cache::DefaultCache(settings_));
+			cache_ = std::make_unique<cache::DefaultCache>(settings_);
 		}
 		else
 		{
-			cache_.reset(new cache::NullCache());
+			cache_ = std::make_unique<cache::NullCache>();
 		}
 	}
 
@@ -42,14 +42,14 @@ public:
 		return settings_;
 	}
 
-	machine::sql::Database *database()
+	machine::sql::Database &database()
 	{
-		return database_.get();
+		return *database_;
 	}
 
-	cache::Cache *cache()
+	cache::Cache &cache()
 	{
-		return cache_.get();
+		return *cache_;
 	}
 
 private:
