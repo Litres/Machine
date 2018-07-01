@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.8)
-add_compile_options (-std=c++11)
+add_compile_options (-std=c++14)
 project (Machine)
 
 set (CMAKE_BUILD_TYPE Debug)
@@ -10,7 +10,8 @@ set (SOURCE_FILES
         src/processor.hpp
         src/server.hpp
         src/sql.hpp
-        src/main.cpp src/common.hpp)
+        src/common.hpp
+        src/main.cpp)
 
 link_libraries (pthread)
 

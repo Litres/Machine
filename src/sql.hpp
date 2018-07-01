@@ -484,7 +484,7 @@ struct ParentSQLFunction : public Function
         json hash = json::object();
         json order = json::array();
 
-        for (json &row : Context::instance().database()->execute(query))
+        for (json &row : Context::instance().database().execute(query))
         {
             auto p = row.find("id");
             if (p == row.end())
@@ -546,7 +546,7 @@ struct ChildSQLFunction : public Function
 		query.place(":ids", extract_keys(data));
 
         json rows = json::object();
-        for (json &row : Context::instance().database()->execute(query))
+        for (json &row : Context::instance().database().execute(query))
         {
             auto p1 = row.find("id");
             if (p1 == row.end())

@@ -24,7 +24,7 @@ public:
 		std::ifstream file("settings.json");
 		file >> settings_;
 
-		database_.reset(new machine::sql::DefaultDatabase(settings_));
+		database_ = std::make_unique<machine::sql::DefaultDatabase>(settings_);
 	}
 
 	const nlohmann::json &settings() const
@@ -32,9 +32,9 @@ public:
 		return settings_;
 	}
 
-	machine::sql::Database *database()
+	machine::sql::Database &database()
 	{
-		return database_.get();
+		return *database_;
 	}
 
 private:
