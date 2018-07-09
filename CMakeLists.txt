@@ -9,9 +9,10 @@ set (SOURCE_FILES
         src/function.hpp
         src/processor.hpp
         src/server.hpp
+        src/db.hpp
         src/sql.hpp
         src/common.hpp
-        src/main.cpp)
+        src/main.cpp src/db_tests.hpp)
 
 link_libraries (pthread)
 
