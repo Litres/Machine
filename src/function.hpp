@@ -1,7 +1,8 @@
 #pragma once
 
-#include <spdlog/spdlog.h>
 #include <json.hpp>
+
+#include "log.hpp"
 
 namespace machine
 {
@@ -51,8 +52,7 @@ public:
 
 	json operator()(json v) const
 	{
-		auto console = spdlog::get("console");
-		console->debug("function object: {0}", f_->object_.dump());
+		logger::get()->debug("function object: {0}", f_->object_.dump());
         return f_->execute(v);
 	}
 
