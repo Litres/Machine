@@ -5,14 +5,16 @@ project (Machine)
 set (CMAKE_BUILD_TYPE Debug)
 
 set (SOURCE_FILES
+        src/log.hpp
         src/context.hpp
         src/function.hpp
         src/processor.hpp
         src/server.hpp
         src/db.hpp
+        src/db_tests.hpp
         src/sql.hpp
         src/common.hpp
-        src/main.cpp src/db_tests.hpp)
+        src/main.cpp)
 
 link_libraries (pthread)
 

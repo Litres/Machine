@@ -12,6 +12,7 @@
 #include <tbb/tbb.h>
 #include <tbb/flow_graph.h>
 
+#include "log.hpp"
 #include "common.hpp"
 #include "context.hpp"
 #include "sql.hpp"
@@ -50,13 +51,11 @@ struct Request
 
 std::string merge(const std::vector<Result> &results)
 {
-	auto console = spdlog::get("console");
-
 	json object = json::object();
 	json::const_pointer parent = nullptr;
 	for (auto &e : results)
 	{
-		console->debug("merge result object: {0}", e.data.dump());
+		logger::get()->debug("merge result object: {0}", e.data.dump());
 
 		const json &list = e.data["result"]["list"];
 
@@ -150,9 +149,7 @@ class Processor
 public:
 	std::string process(const std::string &request)
 	{
-		auto console = spdlog::get("console");
-		console->debug("request: {0}", request);
-
+		logger::get()->debug("request: {0}", request);
 		try
 		{
 			const json object = json::parse(request);
@@ -162,13 +159,13 @@ public:
 			g_.wait_for_all();
 
 			auto result = merge(results_.items());
-			console->debug("result: {0}", result);
+			logger::get()->debug("result: {0}", result);
 
 			return result;
 		}
 		catch (const std::exception &e)
 		{
-			console->error(e.what());
+			logger::get()->error(e.what());
 			return std::string();
 		}
 	}
