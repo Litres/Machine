@@ -9,12 +9,14 @@ set (SOURCE_FILES
         src/function.hpp
         src/processor.hpp
         src/server.hpp
+        src/db.hpp
+        src/db_tests.hpp
         src/sql.hpp
         src/common.hpp
         src/hash.hpp
         src/hash_tests.hpp
         src/cache.hpp
-        src/main.cpp )
+        src/main.cpp)
 
 link_libraries (pthread memcached crypto++)
 
