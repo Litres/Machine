@@ -16,9 +16,10 @@ set (SOURCE_FILES
         src/common.hpp
         src/hash.hpp
         src/hash_tests.hpp
+        src/cache.hpp
         src/main.cpp)
 
-link_libraries (pthread)
+link_libraries (pthread memcached crypto++)
 
 find_package (Boost COMPONENTS system REQUIRED)
 include_directories (${Boost_INCLUDE_DIRS})

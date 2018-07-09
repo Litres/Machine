@@ -4,9 +4,10 @@
 #include <memory>
 #include <exception>
 
-#include <spdlog/spdlog.h>
 #include <json.hpp>
 #include <libmemcached/memcached.h>
+
+#include "log.hpp"
 
 namespace machine
 {
@@ -65,8 +66,6 @@ public:
 
 	void set(const std::string& key, const json& object) override
 	{
-		auto console = spdlog::get("console");
-
 		std::string value = object.dump();
 		time_t expiration = 0;
 		uint32_t flags = 0;
@@ -76,14 +75,12 @@ public:
 
 		if (result != MEMCACHED_SUCCESS)
 		{
-			console->error("fail to set key {0} to cache with error {1}", key, result);
+			logger::get()->error("fail to set key {0} to cache with error {1}", key, result);
 		}
 	}
 
 	json get(const std::string& key) override
 	{
-		auto console = spdlog::get("console");
-
 		size_t size = 0;
 		uint32_t flags = 0;
 		memcached_return_t error = MEMCACHED_SUCCESS;
@@ -95,7 +92,7 @@ public:
 		}
 		else
 		{
-			console->error("fail to get key {0} from cache with error {1}", key, error);
+			logger::get()->error("fail to get key {0} from cache with error {1}", key, error);
 			return json();
 		}
 	}
