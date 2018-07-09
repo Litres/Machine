@@ -10,7 +10,7 @@
 namespace machine
 {
 
-class Hash
+class HashBuilder
 {
 public:
 	void update(const std::string &message)
@@ -22,13 +22,15 @@ public:
 	{
 		byte digest[CryptoPP::Weak::MD5::DIGESTSIZE];
 		hash.Final(digest);
-		
+
 		CryptoPP::HexEncoder encoder;
 		std::string output;
 
 		encoder.Attach(new CryptoPP::StringSink(output));
 		encoder.Put(digest, sizeof(digest));
 		encoder.MessageEnd();
+
+        std::transform(output.begin(), output.end(), output.begin(), ::tolower);
 
 		return output;
 	}

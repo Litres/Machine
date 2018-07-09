@@ -6,6 +6,7 @@
 #include <json.hpp>
 
 #include "sql.hpp"
+#include "hash_tests.hpp"
 
 const char *TAG = "[Machine]";
 
