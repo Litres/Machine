@@ -14,14 +14,14 @@ TEST_CASE( "sql::travel", TAG )
     SECTION( "travel object" )
     {
         auto object = nlohmann::json::parse(R"({ "one": { "two": { "three": [] } } })");
-        const nlohmann::json &result = machine::sql::travel(object, "one");
+        const nlohmann::json &result = machine::travel(object, "one");
         REQUIRE( result.is_object() );
     }
 
     SECTION( "travel array" )
     {
         auto object = nlohmann::json::parse(R"({ "one": { "two": { "three": [] } } })");
-        const nlohmann::json &result = machine::sql::travel(object, "one.two.three");
+        const nlohmann::json &result = machine::travel(object, "one.two.three");
         REQUIRE( result.is_array() );
     }
 }

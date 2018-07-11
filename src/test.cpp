@@ -4,5 +4,6 @@
 
 #include "db_tests.hpp"
 #include "hash_tests.hpp"
+#include "cache_key_tests.hpp"
 
 const char *TAG = "[Machine]";

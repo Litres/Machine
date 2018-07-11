@@ -20,7 +20,7 @@ struct ParentSQLFunction : public Function
 
 	json execute(const json &v) const override
 	{
-		Query query(object_, object_["data"]);
+		Query query(object_, v);
 
 		json hash = json::object();
 		json order = json::array();

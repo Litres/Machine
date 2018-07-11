@@ -17,6 +17,8 @@ set (SOURCE_FILES
         src/hash.hpp
         src/hash_tests.hpp
         src/cache.hpp
+        src/cache_key.hpp
+        src/cache_key_tests.hpp
         src/main.cpp)
 
 link_libraries (pthread memcached crypto++)
