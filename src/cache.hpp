@@ -7,6 +7,8 @@
 #include <json.hpp>
 #include <libmemcached/memcached.h>
 
+#include <boost/optional.hpp>
+
 #include "log.hpp"
 
 namespace machine
@@ -21,7 +23,7 @@ class Cache
 public:
 	virtual void set(const std::string& key, const json& object) = 0;
 
-	virtual json get(const std::string& key) = 0;
+	virtual boost::optional<json> get(const std::string& key) = 0;
 
 	virtual ~Cache() = default;
 
@@ -36,9 +38,9 @@ public:
 	{
 	}
 
-	json get(const std::string& key) override
+	boost::optional<json> get(const std::string& key) override
 	{
-		return json();
+		return boost::none;
 	}
 };
 
@@ -79,7 +81,7 @@ public:
 		}
 	}
 
-	json get(const std::string& key) override
+	boost::optional<json> get(const std::string& key) override
 	{
 		size_t size = 0;
 		uint32_t flags = 0;
@@ -88,12 +90,13 @@ public:
 		char *value = memcached_get(handle_, key.c_str(), key.size(), &size, &flags, &error);
 		if (value != nullptr)
 		{
+		    std::vector<char> v(value, value + size);
 			return json::parse(value, value + size);
 		}
 		else
 		{
 			logger::get()->error("fail to get key {0} from cache with error {1}", key, error);
-			return json();
+			return boost::none;
 		}
 	}
 

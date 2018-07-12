@@ -5,6 +5,8 @@
 #include "common.hpp"
 #include "function.hpp"
 #include "db.hpp"
+#include "cache.hpp"
+#include "cache_key.hpp"
 
 namespace machine
 {
@@ -20,28 +22,46 @@ struct ParentSQLFunction : public Function
 
 	json execute(const json &v) const override
 	{
-		Query query(object_, v);
-
-		json hash = json::object();
-		json order = json::array();
-
-		for (json &row : Context::instance().database().execute(query))
-		{
-			auto p = row.find("id");
-			if (p == row.end())
-			{
-				throw std::logic_error("id not found");
-			}
-			std::string key = std::to_string(p->get<long>());
-			hash[key] = row;
-			order.push_back({ {"id", key} });
-		}
+		std::string body_key = cache::body_cache_key(object_, v);
 
 		json list = json::object();
+
+		if (boost::optional<json> value = Context::instance().cache().get(body_key))
+		{
+			logger::get()->debug("entry found for body key {0}", body_key);
+
+			list = (*value)["data"]["list"];
+		}
+		else
+		{
+			Query query(object_, v);
+
+			json hash = json::object();
+			json order = json::array();
+
+			for (json &row : Context::instance().database().execute(query))
+			{
+				auto p = row.find("id");
+				if (p == row.end())
+				{
+					throw std::logic_error("id not found");
+				}
+				std::string key = std::to_string(p->get<long>());
+				hash[key] = row;
+				order.push_back({ {"id", key} });
+			}
+
+			list["hash_by_id"] = hash;
+			list["rows"] = hash.size();
+			list["ordered_list"] = order;
+
+			json data = json::object();
+			data["list"] = list;
+
+			Context::instance().cache().set(body_key, json::object({ {"data", data} }));
+		}
+
 		list["parent"] = true;
-		list["hash_by_id"] = hash;
-		list["rows"] = hash.size();
-		list["ordered_list"] = order;
 		list["path"] = object_["body"]["params"]["list_path"];
 
 		json result = json::object();

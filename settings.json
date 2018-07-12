@@ -6,5 +6,8 @@
 			"password": "password",
 			"schema": "machine_test"
 		}
+	},
+	"cache": {
+		"configuration": "--SERVER=127.0.0.1:11211"
 	}
 }

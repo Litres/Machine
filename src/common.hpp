@@ -27,7 +27,16 @@ void merge(const json &from, json &to)
         }
         else if (j.value().is_array())
         {
-            // TODO merge array?
+            auto p = to.find(j.key());
+            if (p != to.end())
+            {
+                json &array = *p;
+                array.insert(array.end(), j.value().begin(), j.value().end());
+            }
+            else
+            {
+                to[j.key()] = j.value();
+            }
         }
         else
         {
