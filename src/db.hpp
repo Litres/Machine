@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <algorithm>
 
-#include <spdlog/spdlog.h>
 #include <json.hpp>
 
 #include <boost/lexical_cast.hpp>
@@ -18,6 +17,7 @@
 #include <cppconn/resultset.h>
 #include <cppconn/statement.h>
 
+#include "log.hpp"
 #include "common.hpp"
 
 namespace machine
@@ -272,8 +272,6 @@ public:
 
 	std::vector<json> execute(Query &query) override
 	{
-		auto console = spdlog::get("console");
-
 		std::unique_ptr<Guard> guard(create(query));
 		std::unique_ptr<::sql::Statement> statement(guard->get()->createStatement());
 
@@ -282,7 +280,7 @@ public:
 			return p->escapeString(value);
 		});
 
-		console->debug("executing SQL query: {0}", query.sql());
+		logger::get()->debug("executing SQL query: {0}", query.sql());
 		std::unique_ptr<::sql::ResultSet> set(statement->executeQuery(query.sql()));
 
 		std::vector<json> result;
@@ -370,8 +368,6 @@ private:
 
 	ReleaseGuard *get(const Query &query)
 	{
-		auto console = spdlog::get("console");
-
 		const json &parameters = settings_["db"][query.alias()];
 		const std::string server = make_server(query, parameters);
 		const std::string schema = make_schema(query, parameters);
@@ -388,12 +384,12 @@ private:
 			{
 				if ((*p2)->connection->isValid())
 				{
-					console->debug("connection {0}:{1} is valid", key, (*p2)->id);
+                    logger::get()->debug("connection {0}:{1} is valid", key, (*p2)->id);
 					(*p2)->free = false;
 					return new ReleaseGuard((*p2).get());
 				}
 
-				console->debug("connection {0}:{1} is not valid", key, (*p2)->id);
+                logger::get()->debug("connection {0}:{1} is not valid", key, (*p2)->id);
 				v.erase(p2);
 			}
 		}
@@ -405,7 +401,7 @@ private:
 		auto pointer = new Pointer(driver->connect("tcp://" + server, username, password), last_id_++);
 		pointer->connection->setSchema(schema);
 
-		console->debug("add connection {0}:{1} to pool", key, pointer->id);
+        logger::get()->debug("add connection {0}:{1} to pool", key, pointer->id);
 		if (pool_.find(key) == pool_.end())
 		{
 			pool_[key] = PointerVector();
