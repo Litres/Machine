@@ -68,12 +68,14 @@ public:
 
 	void set(const std::string& key, const json& object) override
 	{
-		std::string value = object.dump();
+		std::vector<uint8_t> value = json::to_msgpack(object);
+		auto data = (const char *)value.data();
+
 		time_t expiration = 0;
 		uint32_t flags = 0;
 
 		memcached_return_t result = memcached_set(handle_, key.c_str(), key.size(),
-				value.c_str(), value.size(), expiration, flags);
+			data, value.size(), expiration, flags);
 
 		if (result != MEMCACHED_SUCCESS)
 		{
@@ -90,8 +92,7 @@ public:
 		char *value = memcached_get(handle_, key.c_str(), key.size(), &size, &flags, &error);
 		if (value != nullptr)
 		{
-		    std::vector<char> v(value, value + size);
-			return json::parse(value, value + size);
+			return json::from_msgpack(std::vector<uint8_t>(value, value + size));
 		}
 		else
 		{
