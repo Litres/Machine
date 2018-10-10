@@ -19,6 +19,7 @@ set (SOURCE_FILES
         src/cache.hpp
         src/cache_key.hpp
         src/cache_key_tests.hpp
+        src/perl.hpp
         src/main.cpp)
 
 link_libraries (pthread memcached crypto++)
@@ -36,7 +37,11 @@ include_directories (lib/spdlog/include)
 include_directories (lib/json/include)
 include_directories (lib/catch/include)
 
+include_directories (perl-bridge/include)
+add_subdirectory (perl-bridge)
+
 add_executable (Machine ${SOURCE_FILES})
+target_link_libraries (Machine perl-bridge)
 target_link_libraries (Machine ${Boost_SYSTEM_LIBRARY})
 target_link_libraries (Machine tbb)
 target_link_libraries (Machine mysqlcppconn)

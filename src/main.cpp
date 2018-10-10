@@ -3,14 +3,17 @@
 #include "log.hpp"
 #include "context.hpp"
 #include "server.hpp"
+#include "perl.hpp"
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	if (argc != 2)
 	{
 		std::cout << "Usage: Machine <port>" << std::endl;
 		return 1;
 	}
+
+	machine::perl::Setup perl_setup(argc, argv);
 
 	logger::setup();
 	
