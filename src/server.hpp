@@ -8,8 +8,8 @@
 #include <string>
 
 #include <boost/asio.hpp>
-#include <spdlog/spdlog.h>
 
+#include "log.hpp"
 #include "processor.hpp"
 
 using boost::asio::ip::tcp;
@@ -32,7 +32,6 @@ private:
 	{
 		auto self(shared_from_this());
 		socket_.async_read_some(boost::asio::buffer(buffer_, buffer_.size()), [this, self](boost::system::error_code error, size_t length) {
-			auto console = spdlog::get("console");
 			if (!error)
 			{
 				auto p = std::find(buffer_.begin(), buffer_.end(), 0x04);
@@ -49,7 +48,7 @@ private:
 			}
 			else
 			{
-				console->error(error.message());
+				logger::get()->error(error.message());
 			}
 		});
 	}
@@ -61,8 +60,7 @@ private:
 		boost::asio::async_write(socket_, boost::asio::buffer(buffer), [this, self](boost::system::error_code error, std::size_t /*length*/) {
 			if (error)
 			{
-				auto console = spdlog::get("console");
-				console->error(error.message());
+				logger::get()->error(error.message());
 			}
 		});
 	}

@@ -5,6 +5,15 @@
 			"username": "machine",
 			"password": "password",
 			"schema": "machine_test"
+		},
+		"dbp": {
+			"server": "127.0.0.1:3306",
+			"username": "machine",
+			"password": "password",
+			"schema": "machine_test"
 		}
+	},
+	"cache": {
+		"configuration": "--SERVER=127.0.0.1:11211"
 	}
 }

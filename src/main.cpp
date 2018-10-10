@@ -1,11 +1,11 @@
 #include <iostream>
 
-#include <spdlog/spdlog.h>
-
+#include "log.hpp"
 #include "context.hpp"
 #include "server.hpp"
+#include "perl.hpp"
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
 	if (argc != 2)
 	{
@@ -13,12 +13,12 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	spdlog::set_pattern("[%H:%M:%S] [t %t] %l: %v");
-	spdlog::set_level(spdlog::level::debug);
-	auto console = spdlog::stdout_logger_mt("console");
+	machine::perl::Setup perl_setup(argc, argv);
+
+	logger::setup();
 	
 	auto port = std::atoi(argv[1]);
-	console->info("starting Machine at port {:d}", port);
+	logger::get()->info("starting Machine at port {:d}", port);
 	try
 	{
 		machine::Context::instance().setup();
@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 	}
 	catch (const std::exception &e)
 	{
-		console->error(e.what());
+		logger::get()->error(e.what());
 		return 1;
 	}
 }

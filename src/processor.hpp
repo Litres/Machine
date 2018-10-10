@@ -12,6 +12,7 @@
 #include <tbb/tbb.h>
 #include <tbb/flow_graph.h>
 
+#include "log.hpp"
 #include "common.hpp"
 #include "context.hpp"
 #include "sql.hpp"
@@ -48,15 +49,13 @@ struct Request
 	}
 };
 
-std::string merge(const std::vector<Result> &results)
+std::string merge(const Queue::ResultSet &results)
 {
-	auto console = spdlog::get("console");
-
 	json object = json::object();
 	json::const_pointer parent = nullptr;
 	for (auto &e : results)
 	{
-		console->debug("merge result object: {0}", e.data.dump());
+		logger::get()->debug("merge result object: {0}, level {1}", e.data.dump(), e.level);
 
 		const json &list = e.data["result"]["list"];
 
@@ -150,33 +149,33 @@ class Processor
 public:
 	std::string process(const std::string &request)
 	{
-		auto console = spdlog::get("console");
-		console->debug("request: {0}", request);
-
+		logger::get()->debug("request: {0}", request);
 		try
 		{
 			const json object = json::parse(request);
-			add(nullptr, object);
+			cache_free_nodes_ = cache::process_cache_denied(object);
+
+			add(nullptr, 0, object);
 
 			nodes_[0]->try_put(object["data"]);
 			g_.wait_for_all();
 
 			auto result = merge(results_.items());
-			console->debug("result: {0}", result);
+			logger::get()->debug("result: {0}", result);
 
 			return result;
 		}
 		catch (const std::exception &e)
 		{
-			console->error(e.what());
+			logger::get()->error(e.what());
 			return std::string();
 		}
 	}
 
 private:
-	void add(std::shared_ptr<Node> parent, const json &object)
+	void add(std::shared_ptr<Node> parent, size_t level, const json &object)
 	{
-		std::shared_ptr<Node> node(new Node(g_, 1, FunctionBridge(create(object))));
+		std::shared_ptr<Node> node(new Node(g_, 1, FunctionBridge(create(level, object))));
 		nodes_.push_back(node);
 
 		if (parent)
@@ -195,30 +194,33 @@ private:
 
 			for (const json &e : children)
 			{
-				add(node, e);
+				add(node, level + 1, e);
 			}
 		}
 	}
 
-	std::shared_ptr<Function> create(const json &object)
+	std::shared_ptr<Function> create(size_t level, const json &object)
 	{
 		const json &body = object["body"];
 		const Request request = Request::create(body["request"]);
 		if (request.name_ == "sql")
 		{
+			bool use_cache = cache_free_nodes_.find(&object) == cache_free_nodes_.end();
 			if (request.type_ == "l")
 			{
-				return std::make_shared<sql::ParentSQLFunction<Context>>(object, results_);
+				return std::make_shared<sql::ParentSQLFunction<Context>>(level, use_cache, object, results_);
 			}
 
 			if (request.type_ == "h")
 			{
-				return std::make_shared<sql::ChildSQLFunction<Context>>(object, results_);
+				return std::make_shared<sql::ChildSQLFunction<Context>>(level, use_cache, object, results_);
 			}
 		}
 		
 		throw std::exception();
 	}
+
+	std::set<const json *> cache_free_nodes_;
 
 	tbb::flow::graph g_;
 	std::vector<std::shared_ptr<Node>> nodes_;
