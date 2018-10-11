@@ -30,8 +30,19 @@ void merge(const json &from, json &to)
             auto p = to.find(j.key());
             if (p != to.end())
             {
-                json &array = *p;
-                array.insert(array.end(), j.value().begin(), j.value().end());
+                const json &input = j.value();
+                json &output = *p;
+                for (size_t i = 0; i < input.size(); i++)
+                {
+                    if (i < output.size())
+                    {
+                        merge(input[i], output[i]);
+                    }
+                    else
+                    {
+                        output.push_back(input[i]);
+                    }
+                }
             }
             else
             {

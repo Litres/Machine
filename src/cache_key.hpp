@@ -6,6 +6,7 @@
 
 #include <json.hpp>
 
+#include "log.hpp"
 #include "hash.hpp"
 #include "common.hpp"
 
@@ -16,7 +17,7 @@ namespace cache
 
 using json = nlohmann::json;
 
-std::string body_cache_key(const json &object, const json &data)
+std::string body_cache_key(const json &object, const json &data, const std::string &r_cache_key)
 {
 	const json &body = object["body"];
 	auto p1 = body.find("cache_key");
@@ -46,7 +47,7 @@ std::string body_cache_key(const json &object, const json &data)
 		}
 	}
 
-	list.push_back(body["request"].dump());
+	list.push_back(body["request"]);
 	list.push_back(parameters.dump());
 
 	std::string parent_key;
@@ -60,6 +61,11 @@ std::string body_cache_key(const json &object, const json &data)
 	{
 		auto p3 = data_request["Lib"].get<long>();
 		list.push_back(std::to_string(p3));
+	}
+
+	if (!r_cache_key.empty())
+	{
+		list.push_back(r_cache_key);
 	}
 
 	HashBuilder hash;

@@ -29,6 +29,12 @@ CREATE TABLE test_rmd_h3 (
 	FOREIGN KEY (art) REFERENCES test_rmd (id) ON DELETE CASCADE
 ) ENGINE=InnoDB CHARACTER SET=UTF8;
 
+CREATE TABLE test_rmd_h4 (
+	test tinyint(3) unsigned NOT NULL,
+	some_txt varchar(128),
+	KEY test (test)
+) ENGINE=InnoDB CHARACTER SET=UTF8;
+
 INSERT INTO test_rmd VALUES
 (1, 'name uno', '2017-01-01 00:00:00'),
 (2, 'cheloveki', '2017-02-15 19:06:00'),
@@ -58,3 +64,9 @@ INSERT INTO test_rmd_h3 VALUES
 (6, 66),
 (7, 77),
 (8, 88);
+
+INSERT INTO test_rmd_h4 VALUES
+(1, ' >"{)'),
+(2, '\'/\\'),
+(3, 'test_3'),
+(4, 'test_4');
